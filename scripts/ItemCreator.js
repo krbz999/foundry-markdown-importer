@@ -1,6 +1,3 @@
-import {getAbilityModifier} from './MarkdownParser.js';
-import {notificationCreator} from './Utilts.js';
-
 /**
  * Returns an array of all the compendiums that have the identifier `spell` in their name
  *
@@ -28,12 +25,10 @@ const _getCompendiums = async () => {
  */
 const _getEntityFromCompendium = async (compendiums, spellName) => {
   for (const compendium of compendiums) {
-    let entry = compendium.index.find(e => e.name.toLowerCase() === spellName);
-    if (entry) {
-      return await compendium.getDocument(entry._id);
-    }
+    const entry = compendium.index.find(e => e.name.toLowerCase() === spellName.toLowerCase());
+    if (entry) return compendium.getDocument(entry._id);
   }
-  notificationCreator('warn', `${spellName} not found`);
+  ui.notifications.warn(`${spellName} not found.`);
 };
 
 /**
@@ -46,33 +41,20 @@ const _getEntityFromCompendium = async (compendiums, spellName) => {
 
 const _prepareSpellsArray = async (spells, compendium, key) => {
   if (!spells) return [];
-  for (let spell of spells) {
-    let index = spells.indexOf(spell);
+  for (const spell of spells) {
+    const index = spells.indexOf(spell);
     const spellFromCompendium = await _getEntityFromCompendium(compendium, spell.toLowerCase().trim());
     if (!spellFromCompendium) continue;
-    spells[index] = JSON.parse(JSON.stringify(spellFromCompendium));
+    spells[index] = game.items.fromCompendium(spellFromCompendium);
 
     if (key.includes('/')) {
       const [value, period] = key.split('/');
-      spells[index].data.uses = {
-        value: value,
-        max: value,
-        per: period
-      };
-      spells[index].data.preparation = {
-        mode: 'innate',
-        prepared: true
-      };
-    }
-    if (key === 'atWill') {
-      spells[index].data.preparation = {
-        mode: 'atwill',
-        prepared: true
-      };
-    }
+      spells[index].system.uses = {value: value, max: value, per: period};
+      spells[index].system.preparation = {mode: "innate"};
+    } else if (key === 'atWill') spells[index].system.preparation = {mode: "atwill"};
   }
 
-  return spells.filter(el => el != null);
+  return spells.filter(el => el);
 };
 
 /**
@@ -104,10 +86,9 @@ const _prepareSpellsObject = async (spells) => {
  */
 
 const spellsAdder = async (actor, spells) => {
-  if (!spells) return;
+  if (!spells?.length) return;
   const spellList = await _prepareSpellsObject(spells);
-
-  await actor.createEmbeddedDocuments('Item', [...spellList]);
+  return actor.createEmbeddedDocuments('Item', spellList);
 };
 
 /**
@@ -156,8 +137,12 @@ const _makeRangeTargetStructure = (abilityRange) => {
 const _getAttackAbility = (ability, actorStats) => {
   if (!ability?.data?.damage?.[0]) return;
   for (const key in actorStats) {
-    if (actorStats.hasOwnProperty(key))
-      if (Number(ability?.data?.damage[0][2]) === getAbilityModifier(actorStats[key])) return key.toLowerCase();
+    if (actorStats.hasOwnProperty(key)) {
+      const mod = Math.floor(actorStats[key] / 2 - 5);
+      if (Number(ability?.data?.damage[0][2]) === mod) {
+        return key.toLowerCase();
+      }
+    }
   }
 };
 
@@ -168,24 +153,21 @@ const _getAttackAbility = (ability, actorStats) => {
  * @private
  */
 const _getActivation = (ability) => {
-  const activationObject = {type: '', cost: 0, condition: ''};
+  const activationObject = {type: '', cost: null, condition: ''};
   if (ability?.cost) {
     activationObject.type = 'legendary';
     activationObject.cost = ability.cost;
-  } else if (ability?.data?.damage?.length !== 0 || ability?.data?.save) {
+  } else if (ability?.data?.damage?.length || ability?.data?.save) {
     activationObject.type = 'action';
     activationObject.cost = 1;
   }
   return activationObject;
 };
 
-const makeDiceRollable = (description) => {
+const makeDiceRollable = (description = "") => {
   return description.replaceAll(/(\dd\d ?[+-]? ?\d?)/g, (match) => {
-    return `
-      <a class="inline-roll roll" title="${match}" data-mode="roll" data-flavor="" data-formula="${match}">
-        ${match}
-      </a>`
-  })
+    return `[[/r ${match}]]{${match}}`;
+  });
 }
 
 /**
@@ -198,27 +180,25 @@ const makeDiceRollable = (description) => {
  */
 
 const itemCreator = async (actor, itemName, itemData, actorStats) => {
+  const hasThirdWTF = !!itemData?.system?.damage?.[0]?.[2];
   let thisItem = {
     name: itemName,
-    type: itemData?.data?.damage?.[0]?.[2] ? 'weapon' : 'feat',
-    data: {
-      description: {value: makeDiceRollable(itemData['description'])},
+    type: hasThirdWTF ? "weapon" : "feat",
+    system: {
+      description: {value: makeDiceRollable(itemData.description)},
       activation: _getActivation(itemData),
       ability: _getAttackAbility(itemData, actorStats),
-      actionType: itemData?.data?.damage?.[0]?.[2] ? 'mwak' : null,
-      damage: {
-        parts: _cleanAbilityDamage(itemData?.['data']?.['damage'])
-      },
-      save: itemData?.['data']?.['save'],
-      equipped: true,
-    },
+      actionType: hasThirdWTF ? "mwak" : null,
+      damage: {parts: _cleanAbilityDamage(itemData?.system?.damage)},
+      save: itemData?.system?.save,
+      equipped: true
+    }
   };
-  Object.assign(thisItem.data, _makeRangeTargetStructure(itemData?.['data']?.['range']));
+  Object.assign(thisItem.system, _makeRangeTargetStructure(itemData?.system?.range));
   try {
-    await actor.createEmbeddedDocuments('Item', [thisItem]);
+    await Item.implementation.create(thisItem, {parent: actor});
   } catch (e) {
-    notificationCreator('error', `There has been an error while creating ${itemName}`);
-    console.error(e);
+    ui.notifications.error(`There has been an error while creating '${itemName}'.`);
   }
 };
 

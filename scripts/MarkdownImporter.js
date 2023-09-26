@@ -1,11 +1,11 @@
 import ImportWindow from "./ImportWindow.js";
 
-Hooks.on("renderSidebarTab", async (app, html) => {
-    if (app?.options?.id == "actors") {
-        let button = $("<button class='import-markdown'><i class='fas fa-file-import'></i>Tetra Cube Import</button>");
-        button.on('click', ()=> {
-            new ImportWindow().render(true);
-        });
-        html.find(".directory-footer").append(button);
-    }
-})
+Hooks.on("renderActorDirectory", async (app, html) => {
+  const div = document.createElement("DIV");
+  div.innerHTML = `
+  <button class="import-markdown">
+    <i class="fa-solid fa-file-import"></i> Markdown Import
+  </button>`;
+  div.querySelector("BUTTON").addEventListener("click", () => new ImportWindow().render(true));
+  html[0].querySelector(".directory-footer").append(div.firstElementChild);
+});

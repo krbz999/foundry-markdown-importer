@@ -1,54 +1,9 @@
-const _skillsToShortMap = {
-  'Acrobatics': 'acr',
-  'Handling': 'ani',
-  'Arcana': 'arc',
-  'Athletics': 'ath',
-  'Deception': 'dec',
-  'History': 'his',
-  'Insight': 'ins',
-  'Intimidation': 'itm',
-  'Investigation': 'inv',
-  'Medicine': 'med',
-  'Nature': 'nat',
-  'Perception': 'prc',
-  'Performance': 'prf',
-  'Persuasion': 'per',
-  'Religion': 'rel',
-  'Hand': 'slt',
-  'Stealth': 'ste',
-  'Survival': 'sur',
-};
-
-const _sizesMap = {
-  'Gargantuan': 'grg',
-  'Large': 'lg',
-  'Huge': 'huge',
-  'Medium': 'med',
-  'Small': 'sm',
-  'Tiny': 'tiny'
-};
-
 const _resistanceMap = {
   'Damage Immunities': 'di',
   'Damage Vulnerabilities': 'dv',
   'Damage Resistances': 'dr',
   'Condition Immunities': 'ci'
 };
-
-const _abilitiesMap = {
-  'Strength': 'str',
-  'Dexterity': 'dex',
-  'Constitution': 'con',
-  'Intelligence': 'int',
-  'Wisdom': 'wis',
-  'Charisma': 'cha'
-};
-
-const shortenAbilities = (ability) => _abilitiesMap[ability];
-
-const shortenSkills = (skill) => _skillsToShortMap[skill];
-
-const convertSizes = (size) => _sizesMap[size];
 
 const convertResistance = (resistance) => _resistanceMap[resistance];
 
@@ -71,11 +26,7 @@ const getCreatureName = (text) => {
 const getCreatureSizeAndAlignment = (text) => {
   const match = text.match(/\*(\w+) (\w+).*, (.*?)\*/);
   if (!match) return;
-  return {
-    size: match[1],
-    race: match[2],
-    alignment: match[3]
-  };
+  return {size: match[1], race: match[2], alignment: match[3]};
 };
 
 /**
@@ -88,10 +39,7 @@ const getCreatureSizeAndAlignment = (text) => {
 const getCreatureACAndSource = (text) => {
   const match = text.match(/ \*\*Armor Class\*\* ([0-9]+) ?(.*)?/);
   if (!match) return;
-  return {
-    AC: match[1],
-    source: match[2]
-  };
+  return {AC: match[1], source: match[2]};
 };
 
 /**
@@ -104,10 +52,7 @@ const getCreatureACAndSource = (text) => {
 const getCreatureHP = (text) => {
   const match = text.match(/ \*\*Hit Points\*\* ([0-9]+)(?: \((.*?)\))?/);
   if (!match) return;
-  return {
-    HP: match[1],
-    formula: match[2]
-  };
+  return {HP: match[1], formula: match[2]};
 };
 
 const specialSpeed = (special) => {
@@ -120,9 +65,11 @@ const specialSpeed = (special) => {
     'hover': false,
     'swim': 0
   };
-  matched.forEach((match) => {
-    out[match[1]] = Number(match[2]);
+  matched.forEach(match => {
+    const value = Number.isNumeric(match[2]) ? Number(match[2]) : 0;
+    out[match[1]] = value;
   });
+  out.hover = !!out.hover;
   return out;
 };
 
@@ -171,9 +118,7 @@ const getSavingThrowMods = (text) => {
   const match = text.match(/\*\*Saving Throws\*\* (.*)/);
   if (!match) return;
   const savesMatch = [...(match[1].matchAll(/(\w{3}) \+([0-9]+)/g) || [])];
-  savesMatch.forEach((save) => {
-    savesObject[save[1]] = Number(save[2]);
-  });
+  savesMatch.forEach(save => savesObject[save[1]] = Number(save[2]));
   return savesObject;
 };
 
@@ -189,9 +134,7 @@ const getSkills = (text) => {
   const match = text.match(/\*\*Skills\*\* (.*)/);
   if (!match) return;
   const skills = [...(match[0].matchAll(/(\w+) \+([0-9]+)/g) || [])];
-  skills.forEach((skill) => {
-    skillsObject[skill[1]] = Number(skill[2]);
-  });
+  skills.forEach((skill) => skillsObject[skill[1]] = Number(skill[2]));
   return skillsObject;
 };
 
@@ -206,12 +149,8 @@ const getDamageModifiers = (text) => {
   const modifiersObject = {};
   const damageMatch = [...(text.matchAll(/\*\*(Damage \w+)\*\* (.*)/g) || [])];
   const conditionMatch = [...(text.matchAll(/\*\*(Condition Immunities)\*\* (.*)/g) || [])];
-  damageMatch.forEach((modifier) => {
-    modifiersObject[modifier[1]] = modifier[2];
-  });
-  conditionMatch.forEach((modifier) => {
-    modifiersObject[modifier[1]] = modifier[2];
-  });
+  damageMatch.forEach((modifier) => modifiersObject[modifier[1]] = modifier[2]);
+  conditionMatch.forEach((modifier) => modifiersObject[modifier[1]] = modifier[2]);
   return modifiersObject;
 };
 
@@ -322,9 +261,10 @@ const getAttackDamage = (text) => {
 const getAttackSave = (text) => {
   let match = text.match(/DC ([0-9]+) (\w+)/);
   if (!match) return;
+  const abi = Object.entries(CONFIG.DND5E.abilities).find(([a, b]) => b.label === match[2]) ?? [];
   return {
     'dc': Number(match[1]),
-    'ability': shortenAbilities(match[2])
+    'ability': abi ?? null
   };
 };
 
@@ -383,12 +323,10 @@ const getAbilities = (text) => {
   const abilitiesObject = {};
 
   match.forEach((ability) => {
-    abilitiesObject[ability[1]] = {
-      description: _clearText(ability[2]),
-      data: {}
-    };
-    if (ability[1] === 'Spellcasting' || ability[1] === 'Innate Spellcasting') abilitiesObject[ability[1]].data = getSpellcastingStats(ability[2]);
-    else abilitiesObject[ability[1]].data = getAttack(ability[2]);
+    abilitiesObject[ability[1]] = {description: _clearText(ability[2]), data: {}};
+    if (["Spellcasting", "Innate Spellcasting"].includes(ability[1])) {
+      abilitiesObject[ability[1]].data = getSpellcastingStats(ability[2]);
+    } else abilitiesObject[ability[1]].data = getAttack(ability[2]);
   });
 
   extraMatch.forEach((extraAbility) => {
@@ -433,9 +371,8 @@ const getLegendaryActions = (text) => {
  * @param text - markdown text
  */
 const getNumberOfLegendaryActions = (text) => {
-  const legendaryActionDescription = text.match(/> .* can take ([0-9]+) legendary actions, .*/);
-
-  return Number(legendaryActionDescription?.[1]);
+  const legendaryActionDescription = text.match(/> .* can take ([0-9]+) legendary actions, .*/) || [];
+  return Number(legendaryActionDescription[1] ?? []);
 };
 
 /**
@@ -444,9 +381,8 @@ const getNumberOfLegendaryActions = (text) => {
  * @param text - markdown text
  */
 const getNumberOfLegendaryResistances = (text) => {
-  const legendaryRes = text.match(/> \*\*\*Legendary Resistance \(([0-9]+)\/Day\)\.\*\*\*/);
-
-  return Number(legendaryRes?.[1]);
+  const legendaryRes = text.match(/> \*\*\*Legendary Resistance \(([0-9]+)\/Day\)\.\*\*\*/) || [];
+  return Number(legendaryRes[1] ?? 0);
 };
 
 /**
@@ -496,34 +432,8 @@ const getSpellSlots = (text) => {
   return slotsObject;
 };
 
-/**
- * Returns a creature's proficiency
- * The proficiency is calculated using an attack where the to hit score has the prof added adn the + to the damage roll doesn't
- *
- * @param abilities - an object of all the creatures abilities
- */
-const getProficiency = (abilities) => {
-  for (const key in abilities) {
-    if (!abilities.hasOwnProperty(key)) continue;
-    if (abilities[key]?.data?.hit && abilities[key]?.data?.damage?.[0]?.[2])
-      return abilities[key].data.hit - abilities[key].data.damage[0][2];
-  }
-  return 0;
-};
-
-/**
- * Returns the ability modifier given the ability score
- *
- * @param abilityScore - ability score, example 20 -> returns +5
- */
-const getAbilityModifier = (abilityScore) => Math.floor(abilityScore / 2 - 5);
-
 export {
-  getAbilityModifier,
-  shortenSkills,
   convertResistance,
-  convertSizes,
-  shortenAbilities,
   getCreatureSizeAndAlignment,
   getCreatureName,
   getAbilities,
