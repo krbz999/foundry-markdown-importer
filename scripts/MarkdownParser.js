@@ -1,207 +1,7 @@
-const _resistanceMap = {
-  'Damage Immunities': 'di',
-  'Damage Vulnerabilities': 'dv',
-  'Damage Resistances': 'dr',
-  'Condition Immunities': 'ci'
-};
-
-const convertResistance = (resistance) => _resistanceMap[resistance];
 
 const _clearText = (text) => {
   text = text.replace(/_/g, '');
   return text;
-};
-
-/**
- * Returns a creature's name
- *
- * @param text - markdown text
- */
-const getCreatureName = (text) => {
-  const match = text.match(/>\s*##\s*(.+)/);
-  if (!match) return;
-  return match[1];
-};
-
-const getCreatureSizeAndAlignment = (text) => {
-  const match = text.match(/\*(\w+) (\w+).*, (.*?)\*/);
-  if (!match) return;
-  return {size: match[1], race: match[2], alignment: match[3]};
-};
-
-/**
- * Returns an object that contains the creatures AC and the source of that armor class
- *
- * @Fields: AC, source
- *
- * @param text - markdown text
- */
-const getCreatureACAndSource = (text) => {
-  const match = text.match(/ \*\*Armor Class\*\* ([0-9]+) ?(.*)?/);
-  if (!match) return;
-  return {AC: match[1], source: match[2]};
-};
-
-/**
- * Returns an object that contains the creatures HP and the formula to calculate it
- *
- * @Fields: HP, formula
- *
- * @param text - markdown text
- */
-const getCreatureHP = (text) => {
-  const match = text.match(/ \*\*Hit Points\*\* ([0-9]+)(?: \((.*?)\))?/);
-  if (!match) return;
-  return {HP: match[1], formula: match[2]};
-};
-
-const specialSpeed = (special) => {
-  if (!special) return;
-  const matched = [...(special.matchAll(/(\w+) ([0-9]+)/g) || [])];
-  const out = {
-    'burrow': 0,
-    'climb': 0,
-    'fly': 0,
-    'hover': false,
-    'swim': 0
-  };
-  matched.forEach(match => {
-    const value = Number.isNumeric(match[2]) ? Number(match[2]) : 0;
-    out[match[1]] = value;
-  });
-  out.hover = !!out.hover;
-  return out;
-};
-
-/**
- * Returns an object that contains a creature's speed
- *
- * @Fields: value, special
- *
- * @param text - markdown text
- */
-const getCreatureSpeed = (text) => {
-  const speedMatch = text.match(/\*\*Speed\*\* ([0-9]+) ft.,? ?(.*)?/);
-  if (!speedMatch) return;
-  return {
-    walk: Number(speedMatch[1]),
-    ...specialSpeed(speedMatch[2]),
-    units: 'ft'
-  };
-};
-
-/**
- * Returns a creature's stats
- *
- * @Fields: Str, Dex, Con, Int, Wis, Cha
- *
- * @param text - markdown text
- */
-const getCreatureStats = (text) => {
-  const stats = [...(text.matchAll(/\|([0-9]+) \([+-][0-9]+\)/g) || [])];
-  const updatedStats = {Str: 0, Dex: 0, Con: 0, Int: 0, Wis: 0, Cha: 0};
-  stats.forEach((stat, index) => {
-    updatedStats[Object.keys(updatedStats)[index]] = Number(stat[1]);
-  });
-  return updatedStats;
-};
-
-/**
- * Returns a creature's saving throws as an object
- *
- * @ExampleFields: Str, Dex
- *
- * @param text - markdown text
- */
-const getSavingThrowMods = (text) => {
-  const savesObject = {};
-  const match = text.match(/\*\*Saving Throws\*\* (.*)/);
-  if (!match) return;
-  const savesMatch = [...(match[1].matchAll(/(\w{3}) \+([0-9]+)/g) || [])];
-  savesMatch.forEach(save => savesObject[save[1]] = Number(save[2]));
-  return savesObject;
-};
-
-/**
- * Returns a creature's skills
- *
- * @ExampleFields: Perception, Insist
- *
- * @param text - markdown text
- */
-const getSkills = (text) => {
-  const skillsObject = {};
-  const match = text.match(/\*\*Skills\*\* (.*)/);
-  if (!match) return;
-  const skills = [...(match[0].matchAll(/(\w+) \+([0-9]+)/g) || [])];
-  skills.forEach((skill) => skillsObject[skill[1]] = Number(skill[2]));
-  return skillsObject;
-};
-
-/**
- * Returns a creature's damage modifiers (Vulnerability, Resistance, Immunity)
- *
- * @ExampleFields: Immunity, Vulnerability
- *
- * @param text - markdown text
- */
-const getDamageModifiers = (text) => {
-  const modifiersObject = {};
-  const damageMatch = [...(text.matchAll(/\*\*(Damage \w+)\*\* (.*)/g) || [])];
-  const conditionMatch = [...(text.matchAll(/\*\*(Condition Immunities)\*\* (.*)/g) || [])];
-  damageMatch.forEach((modifier) => modifiersObject[modifier[1]] = modifier[2]);
-  conditionMatch.forEach((modifier) => modifiersObject[modifier[1]] = modifier[2]);
-  return modifiersObject;
-};
-
-const getVision = (visionText) => {
-  if (!visionText) return;
-  const matched = [...(visionText.matchAll(/(\w+) ([0-9]+)/g) || [])];
-  const out = {
-    'blindsight': 0,
-    'darkvision': 0,
-    'special': '',
-    'tremorsense': 0,
-    'truesight': 0,
-    'units': 'ft'
-  };
-  matched.forEach((match) => out[match[1]] = Number(match[2]));
-  return out;
-};
-
-/**
- * Returns a creature's senses
- *
- * @ExampleFields: vision, passive Perception
- *
- * @param text - markdown text
- */
-const getSenses = (text) => {
-  const sensesObject = {};
-  const match = [...(text.match(/\*\*Senses\*\* ?(.*)?,? (passive Perception) ([0-9]+)/) || [])];
-  sensesObject['vision'] = getVision(match[1]);
-  sensesObject[match[2]] = match[3];
-  return sensesObject;
-};
-
-/**
- * Returns a creature's languages as a string
- *
- * @param text - markdown text
- */
-const getLanguages = (text) => [...(text.match(/\*\*Languages\*\* (.*)/) || [])][1];
-
-
-/**
- * Returns a creature's challange rating
- *
- * @Fields: CR, XP
- *
- * @param text - markdown text
- */
-const getChallenge = (text) => {
-  const match = text.match(/\*\*Challenge\*\* (([0-9]+\/[0-9]+)|([0-9]+)) \((.*) XP\)/);
-  return {CR: eval(match[1]), XP: Number(match[4].replace(',', ''))};
 };
 
 /**
@@ -296,19 +96,6 @@ const getAttack = (text) => {
 };
 
 /**
- * Returns a creature's spellcasting details
- *
- * @Fields: level -> spellcaster level, modifier -> spellcasting ability modifier
- *
- * @param text - markdown text
- */
-const getSpellcastingStats = (text) => {
-  const spellcastingLevel = [...(text.match(/([0-9]+)\w{1,2}-level spellcaster/) || [])];
-  const spellcastingModifier = [...(text.match(/spell ?casting ability is (\w+)/) || [])];
-  return {level: Number(spellcastingLevel[1]) || 0, modifier: spellcastingModifier[1]};
-};
-
-/**
  * Returns a creature's abilities
  * A creature's abilities could be for example attacks or features
  *
@@ -366,26 +153,6 @@ const getLegendaryActions = (text) => {
 };
 
 /**
- * Returns the number of legendary actions from an actor
- *
- * @param text - markdown text
- */
-const getNumberOfLegendaryActions = (text) => {
-  const legendaryActionDescription = text.match(/> .* can take ([0-9]+) legendary actions, .*/) || [];
-  return Number(legendaryActionDescription[1] ?? []);
-};
-
-/**
- * Returns the number of legendary resistances from an actor
- *
- * @param text - markdown text
- */
-const getNumberOfLegendaryResistances = (text) => {
-  const legendaryRes = text.match(/> \*\*\*Legendary Resistance \(([0-9]+)\/Day\)\.\*\*\*/) || [];
-  return Number(legendaryRes[1] ?? 0);
-};
-
-/**
  * Returns a creature's spell list
  *
  * @ExampleFields: Cantrips, 1, 2, 3, 4
@@ -415,41 +182,8 @@ const getSpells = (text) => {
   return spellsObject;
 };
 
-/**
- * Returns a creature's number of available spellslots
- *
- * @param text - markdown text
- */
-const getSpellSlots = (text) => {
-  const matchedSlots = [...(text.matchAll(/([0-9]+)\w{1,2} level \(([0-9]+) slots?\)/g) || [])];
-  const slotsObject = {};
-  matchedSlots.forEach((slot) => {
-    slotsObject[`spell${slot[1]}`] = {
-      value: Number(slot[2]),
-      max: Number(slot[2])
-    };
-  });
-  return slotsObject;
-};
-
 export {
-  convertResistance,
-  getCreatureSizeAndAlignment,
-  getCreatureName,
   getAbilities,
   getLegendaryActions,
-  getSpells,
-  getCreatureStats,
-  getSavingThrowMods,
-  getCreatureACAndSource,
-  getCreatureSpeed,
-  getCreatureHP,
-  getChallenge,
-  getLanguages,
-  getSenses,
-  getDamageModifiers,
-  getSkills,
-  getNumberOfLegendaryActions,
-  getNumberOfLegendaryResistances,
-  getSpellSlots
+  getSpells
 };

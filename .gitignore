@@ -109,3 +109,5 @@ dist
 # Foundry files
 dist
 foundryconfig.json
+scripts/ignore.json
+.gitignore
