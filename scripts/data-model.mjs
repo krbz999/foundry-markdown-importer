@@ -216,7 +216,7 @@ export class MarkDownParserClass {
     text.languages.forEach((language) => {
       const [key] = config.find(c => c.includes(language.name)) ?? [];
       if (key) standardLg.push(key);
-      else customLg.push(language);
+      else customLg.push(language.name);
     });
     if (text.telepathy > 0) customLg.push(`Telepathy ${text.telepathy} ft`);
     console.warn({standardLg, customLg});
@@ -287,7 +287,7 @@ class ItemParser {
     let abi = null;
     let atk = null;
 
-    const type = desc.includes("Weapon Attack") ? "weapon" : "feat";
+    const type = rechargeData.value ? "feat" : desc.includes("Weapon Attack") ? "weapon" : "feat";
 
     // case 1: find ability
     if (hitData !== null) {
@@ -305,7 +305,7 @@ class ItemParser {
     const activation = this.TYPES[this._current];
     if (this._current === "legendaries") {
       const [_, match] = name.match(/\(Costs ([0-9]+) Actions\)/) ?? [];
-      activation.cost = MarkDownParserClass.defaultNumber(match[1], 1);
+      activation.cost = MarkDownParserClass.defaultNumber(match, 1);
     }
 
     const text = desc.toLowerCase();
