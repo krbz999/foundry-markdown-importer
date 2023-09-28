@@ -1,7 +1,6 @@
 import {MarkDownParserClass} from "./data-model.mjs";
 
-
-export default class ImportWindow extends Application {
+class ImportWindow extends Application {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "md-importer",
@@ -31,3 +30,13 @@ export default class ImportWindow extends Application {
     return new MarkDownParserClass(data);
   }
 }
+
+Hooks.on("renderActorDirectory", async (app, html) => {
+  const div = document.createElement("DIV");
+  div.innerHTML = `
+  <button class="import-markdown">
+    <i class="fa-solid fa-file-import"></i> Markdown Import
+  </button>`;
+  div.querySelector("BUTTON").addEventListener("click", () => new ImportWindow().render(true));
+  html[0].querySelector(".directory-footer").append(div.firstElementChild);
+});

@@ -4,7 +4,7 @@
   "description": "Import markdown into foundry.",
   "version": "11.0.0",
   "esmodules": [
-    "scripts/MarkdownImporter.js"
+    "scripts/import-window.mjs"
   ],
   "styles": [
     "styles/style.css"
