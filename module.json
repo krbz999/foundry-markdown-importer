@@ -1,21 +1,40 @@
 {
-  "name": "foundry-markdown-importer",
+  "id": "foundry-markdown-importer",
   "title": "Foundry Markdown Importer",
-  "description": "Import markdown into foundry.",
+  "description": "Import monster files into Foundry.",
   "version": "11.0.0",
+  "authors": [
+    {
+      "name": "HadaIonut"
+    },
+    {
+      "name": "Zhell",
+      "url": "https://github.com/krbz999",
+      "discord": "Zhell9201",
+      "ko-fi": "https://ko-fi.com/zhell",
+      "patreon": "https://patreon.com/zhell"
+    }
+  ],
   "esmodules": [
     "scripts/import-window.mjs"
   ],
-  "styles": [
-    "styles/style.css"
-  ],
-  "systems": [
-    {
-      "id": "dnd5e"
-    }
-  ],
-  "url": "https://github.com/HadaIonut/Foundry-Markdown-Importer",
-  "manifest": "https://github.com/HadaIonut/Foundry-Markdown-Importer/releases/download/v1.3.3/module.json",
-  "download": "https://github.com/HadaIonut/Foundry-Markdown-Importer/releases/download/v1.3.3/Tetra-CubeImporter.zip",
-  "changelog": ""
+  "compatibility": {
+    "minimum": "11",
+    "maximum": "11",
+    "verified": "11"
+  },
+  "relationships": {
+    "systems": [
+      {
+        "id": "dnd5e",
+        "compatibility": {
+          "minimum": "2.3.0"
+        }
+      }
+    ]
+  },
+  "url": "",
+  "license": "",
+  "manifest": "",
+  "download": ""
 }
