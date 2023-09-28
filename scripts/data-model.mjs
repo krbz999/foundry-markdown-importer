@@ -2,9 +2,7 @@ export class MarkDownParserClass {
   constructor(text) {
     this.text = text;
     this.model = new Actor.implementation({type: "npc", name: text.name});
-
     console.warn(text);
-
     this.execute();
   }
 
@@ -24,10 +22,9 @@ export class MarkDownParserClass {
     this.getVision(this.text);
 
     const items = new ItemParser(this.model, this.text).create();
-    this.model.updateSource({items: items});
-    this.model.prepareData();
+    this.updateModel({items: items});
+
     const data = this.model.toObject();
-    console.warn("FINAL DATA:", foundry.utils.deepClone(data));
     return Actor.implementation.create(data);
   }
 
@@ -49,7 +46,6 @@ export class MarkDownParserClass {
     const [size] = Object.entries(CONFIG.DND5E.actorSizes).find(c => c.map(x => x.toLowerCase()).includes(text.size)) ?? [];
     const [type] = Object.entries(CONFIG.DND5E.creatureTypes).find(c => c.map(x => game.i18n.localize(x)).includes(text.type)) ?? [];
     const alignment = text.alignment || "";
-    console.warn({size, type, alignment});
     this.updateModel({
       "system.traits.size": size ?? "med",
       "system.details.type.value": type ?? "",
@@ -59,8 +55,7 @@ export class MarkDownParserClass {
 
   // Get ac, source.
   getACSource(text) {
-    let [_, ac = null, acSource = null] = text.otherArmorDesc.match(/([0-9]+)/) ?? [];
-    console.warn({_, ac, acSource});
+    const [_, ac] = text.otherArmorDesc.match(/([0-9]+)/) ?? [];
     this.updateModel({
       "system.attributes.ac.flat": this.constructor.defaultNumber(ac, 10),
       "system.attributes.ac.calc": "flat"
@@ -69,15 +64,12 @@ export class MarkDownParserClass {
 
   // Get hp.
   getHitPoints(text) {
-    let [_, value = null, formula = null] = text.hpText.match(/([0-9]+) \((.*)\)/) ?? [];
-    console.warn({_, value, formula});
-    value = this.constructor.defaultNumber(value, 10);
-    formula = Roll.validate(formula) ? formula : "";
-    console.warn({_, value, formula});
+    const [_, value, formula] = text.hpText.match(/([0-9]+) \((.*)\)/) ?? [];
+    const total = this.constructor.defaultNumber(value, 10);
     this.updateModel({
-      "system.attributes.hp.value": value,
-      "system.attributes.hp.max": value,
-      "system.attributes.hp.formula": formula
+      "system.attributes.hp.value": total,
+      "system.attributes.hp.max": total,
+      "system.attributes.hp.formula": Roll.validate(formula) ? formula : ""
     });
   }
 
@@ -92,7 +84,6 @@ export class MarkDownParserClass {
       swim: this.constructor.defaultNumber(swimSpeed, 0),
       hover: !!text.hover
     };
-    console.warn(data);
     this.updateModel({"system.attributes.movement": data});
   }
 
@@ -102,7 +93,6 @@ export class MarkDownParserClass {
     const data = {};
     for (const key of keys) data[`system.abilities.${key}.value`] = this.constructor.defaultNumber(text[`${key}Points`], 10);
     for (const s of text.sthrows) data[`system.abilities.${s}.proficient`] = 1;
-    console.warn(data);
     this.updateModel(data);
   }
 
@@ -118,7 +108,6 @@ export class MarkDownParserClass {
       data[`system.skills.${key}.value`] = value;
       data[`system.skills.${key}.ability`] = abi;
     });
-    console.warn(data);
     this.updateModel(data);
   }
 
@@ -134,7 +123,6 @@ export class MarkDownParserClass {
     }, {});
     data[`system.traits.ci.value`] = text.conditions?.map(c => c.name) ?? [];
     for (const key in data) if (key.endsWith(".custom")) data[key] = data[key].filterJoin(";");
-    console.warn(data);
     this.updateModel(data);
   }
 
@@ -149,7 +137,6 @@ export class MarkDownParserClass {
       const current = this.model.system.spells[`spell${level}`].max;
       data[`system.spells.spell${level}.value`] = Math.max(current, value);
       if (current !== value) data[`system.spells.spell${level}.override`] = Math.max(current, value);
-      console.warn("GET SPELL DATA", {level, value, current});
     });
     this.updateModel(data);
   }
@@ -158,9 +145,8 @@ export class MarkDownParserClass {
   getResources(text) {
     const data = {};
     if (text.isLegendary) {
-      const [_, amount = null] = text.legendariesDescription.match(/can take ([0-9]+) legendary actions/) || [];
+      const [_, amount] = text.legendariesDescription.match(/can take ([0-9]+) legendary actions/) || [];
       const legact = this.constructor.defaultNumber(amount, null);
-      console.warn({legact});
       data["system.resources.legact"] = {value: legact, max: legact};
     }
 
@@ -170,10 +156,9 @@ export class MarkDownParserClass {
       if (m) return m;
     }, null);
     if (ability) {
-      const [__, amountRes = null] = ability;
+      const [__, amountRes] = ability;
       const legres = this.constructor.defaultNumber(amountRes, null);
-      console.warn({legres});
-      data["system.resources.legres"] = {value: legres, max: legact};
+      data["system.resources.legres"] = {value: legres, max: legres};
     }
 
     this.updateModel(data);
@@ -182,7 +167,6 @@ export class MarkDownParserClass {
   getSpellcasting(text) {
     const level = this._getSpellLevel();
     const abi = this._getSpellcasting();
-    console.warn({level, abi});
     this.updateModel({"system.details.spellLevel": level, "system.attributes.spellcasting": abi});
   }
 
@@ -219,7 +203,6 @@ export class MarkDownParserClass {
       else customLg.push(language.name);
     });
     if (text.telepathy > 0) customLg.push(`Telepathy ${text.telepathy} ft`);
-    console.warn({standardLg, customLg});
     this.updateModel({
       "system.traits.languages.value": standardLg,
       "system.traits.languages.custom": customLg.filterJoin(";")
@@ -231,7 +214,6 @@ export class MarkDownParserClass {
     for (const key of ["blindsight", "darkvision", "tremorsense", "truesight"]) {
       data[`system.attributes.senses.${key}`] = this.constructor.defaultNumber(text[key], 0);
     }
-    console.warn(data);
     this.updateModel(data);
   }
 }
