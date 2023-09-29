@@ -151,8 +151,9 @@ export class MarkDownParserClass {
 
     const ability = text.abilities.reduce((acc, a) => {
       if (acc) return acc;
-      const m = a.desc.match(/Legendary Resistance \(([0-9]+)\/Day\)/);
+      const m = a.name?.match(/Legendary Resistance \(([0-9]+)\/.ay\)/);
       if (m) return m;
+      else return acc;
     }, null);
     if (ability) {
       const [__, amountRes] = ability;
