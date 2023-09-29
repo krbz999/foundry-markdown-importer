@@ -27,7 +27,7 @@ class ImportWindow extends Application {
 
   _onLoad(reader) {
     const data = JSON.parse(reader.result);
-    return new MarkDownParserClass(data);
+    return new MarkDownParserClass(data).execute();
   }
 }
 

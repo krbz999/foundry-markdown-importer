@@ -2,7 +2,6 @@ export class MarkDownParserClass {
   constructor(text) {
     this.text = text;
     this.model = new Actor.implementation({type: "npc", name: text.name});
-    this.execute();
   }
 
   async execute() {
