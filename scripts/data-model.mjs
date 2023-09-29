@@ -376,8 +376,8 @@ class ItemParser {
   }
 
   getHit(text) {
-    const [match] = text.match(/([+-] ?[0-9]+) to hit/) ?? [];
-    return Number.isNumeric(match) ? Number(match) : null;
+    const [_, match] = text.match(/([+-] ?[0-9]+) to hit/) ?? [];
+    return MarkDownParserClass.defaultNumber(match, null);
   }
 
   /**
