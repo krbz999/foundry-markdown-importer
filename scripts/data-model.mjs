@@ -2,7 +2,6 @@ export class MarkDownParserClass {
   constructor(text) {
     this.text = text;
     this.model = new Actor.implementation({type: "npc", name: text.name});
-    console.warn(text);
     this.execute();
   }
 
@@ -21,7 +20,7 @@ export class MarkDownParserClass {
     this.getLanguages(this.text);
     this.getVision(this.text);
 
-    const items = new ItemParser(this.model, this.text).create();
+    const items = await new ItemParser(this.model, this.text).create();
     this.updateModel({items: items});
 
     const data = this.model.toObject();
@@ -236,7 +235,7 @@ class ItemParser {
   }
   _current = null;
 
-  create() {
+  async create() {
     const items = [];
     for (const key of Object.keys(this.TYPES)) {
       this._current = key;
@@ -247,6 +246,15 @@ class ItemParser {
         items.push(item);
       }
     }
+
+    for (const item of this.data.abilities) {
+      const names = this.getSpellNames(item);
+      if (names.length) {
+        const spells = await this.addSpells(names);
+        items.push(...spells);
+      }
+    }
+
     return items;
   }
 
@@ -373,29 +381,74 @@ class ItemParser {
 
   /**
    * Utility function to get spell names from an item description.
-   * Deprecated code. Not currently functional.
    */
-  getSpellNames(desc) {
-    return;
-    const matchedSpells = [...(text.matchAll(/(Cantrips|([0-9]+)\w{1,2} level) \(.*\): _?(.*)_?/g) || [])];
-    const atWillSpells = [...(text.matchAll(/At will: _?(.*)_?(?:<br>)?/g) || [])];
-    const reapeatableSpells = [...(text.matchAll(/([0-9]+\/day)(?: each)?: _?(.*)_?/g) || [])];
-    let spellsObject = {};
-    matchedSpells.forEach((spell) => {
-      const typeOfSpell = spell[2] ? spell[2] : spell[1];
-      spellsObject[typeOfSpell] = spell[3].replace(/\*|_|<br>/g, '').split(',');
-    });
-    if (atWillSpells)
-      spellsObject = {
-        ...spellsObject,
-        atWill: atWillSpells?.[0]?.[1]?.replaceAll?.(/\*|_|<br>/g, '')?.split?.(', ')
-      };
-    if (reapeatableSpells)
-      reapeatableSpells.forEach((spell) => {
-        spellsObject[spell[1]] = spell[2].replaceAll(/\*|_|<br>/g, '').split(', ');
-      });
+  getSpellNames(abi) {
+    const desc = abi.desc ?? "";
+    const matchedSpells = [...(desc.matchAll(/(Cantrips|([0-9]+)\w{1,2} level) \(.*\): _?(.*)_?/g) || [])];
+    const atWillSpells = [...(desc.matchAll(/At will: _?(.*)_?(?:<br>)?/g) || [])];
+    const repeatableSpells = [...(desc.matchAll(/[0-9]+\/day: (.*)/g) || [])];
 
-    return spellsObject;
+    const names = [];
+
+    const clean = (str) => str.split(",").map(n => n.replaceAll("_", "").trim()).filter(u => u);
+
+    matchedSpells.forEach(spell => {
+      const spellNames = clean(spell[3] || "");
+      if (spellNames.length) names.push(...spellNames);
+    });
+
+    atWillSpells.forEach(spell => {
+      const spellNames = clean(spell[1] || "");
+      if (spellNames.length) names.push(...spellNames);
+    });
+
+    repeatableSpells.forEach(spell => {
+      const spellNames = clean(spell[1] || "");
+      if (spellNames.length) names.push(...spellNames);
+    });
+
+    return names;
+  }
+
+  /**
+   * Retrieve a spell from a pack.
+   * @param {Pack[]} packs              The compendiums.
+   * @param {string} name               The name of the spell.
+   * @returns {Promise<Item|null>}      The spell, if found.
+   */
+  async _getSpellFromName(packs, name) {
+    let entry = null;
+    for (const pack of packs) {
+      if (entry) continue;
+      entry = pack.index.find(idx => {
+        return (idx.type === "spell") && (idx.name.toLowerCase() === name.toLowerCase());
+      }) ?? null;
+    }
+    if (!entry) {
+      ui.notifications.warn(`The spell '${name}' was not found.`);
+      return null;
+    }
+    return fromUuid(entry.uuid);
+  }
+
+  /**
+   * Create the item data for the spells to be added.
+   * @param {string[]} names          An array of spell names.
+   * @returns {Promise<object[]>}     The spell item data.
+   */
+  async addSpells(names) {
+    const packs = game.packs.filter(pack => {
+      const isSpell = pack.metadata.id.includes("spell") || pack.metadata.label.toLowerCase().includes("spell");
+      const isItem = pack.metadata.type === "Item";
+      return isSpell && isItem;
+    });
+
+    const items = await Promise.all(names.map(n => this._getSpellFromName(packs, n.trim())));
+    const itemData = items.reduce((acc, item) => {
+      if (item) acc.push(game.items.fromCompendium(item));
+      return acc;
+    }, []);
+
+    return itemData;
   }
 }
-
