@@ -224,7 +224,7 @@ class ItemParser {
   }
 
   static TYPES = {
-    abilities: {type: "", cost: null},
+    abilities: {type: "special", cost: null},
     actions: {type: "action", cost: 1},
     bonusActions: {type: "bonus", cost: 1},
     reactions: {type: "reaction", cost: 1},
@@ -269,11 +269,13 @@ class ItemParser {
   }
 
   _createItem(name, desc) {
+    desc = desc.replaceAll("[MON]", this.actor.name);
     const {rangeData, targetData} = this.getRange(desc) ?? {};
     const damageData = this.getDamage(desc) ?? [];
     const saveData = this.getSave(desc) ?? {};
     const hitData = this.getHit(desc) ?? null;
     const rechargeData = this.getRecharge(name) ?? {};
+    const usesData = foundry.utils.isEmpty(rechargeData) ? (this.getUses(name) ?? {}) : {};
     let abi = null;
     let atk = null;
 
@@ -322,7 +324,8 @@ class ItemParser {
       "system.actionType": actionType,
       "system.type.value": "monster",
       "system.proficient": null,
-      "system.equipped": true
+      "system.equipped": true,
+      "system.uses": usesData
     };
     return foundry.utils.expandObject(data);
   }
@@ -330,6 +333,23 @@ class ItemParser {
   getRecharge(name) {
     const match = name.match(/Recharge ([1-6]?)-?6/);
     if (match) return {charged: true, value: Number(match[1] || 6)};
+  }
+
+  getUses(name) {
+    const match = name.toLowerCase().match(/([0-9]+) ?\/ ?(day|lr|long rest|sr|short rest|long|short)/);
+    if (match) {
+      const per = {
+        day: "day",
+        lr: "lr",
+        "long rest": "lr",
+        sr: "sr",
+        "short rest": "sr",
+        long: "lr",
+        short: "sr"
+      }[match[2]] ?? "charges";
+      const value = match[1];
+      return {value: value, max: value, per: per};
+    }
   }
 
   getRange(text) {
