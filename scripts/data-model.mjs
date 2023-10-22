@@ -327,7 +327,42 @@ class ItemParser {
       "system.equipped": true,
       "system.uses": usesData
     };
+
+    data["system.description.value"] = this._postProcess(desc);
+    if (!data["system.damage.parts"].length) data["system.damage.parts"] = this.getDamage(desc) ?? [];
+
     return foundry.utils.expandObject(data);
+  }
+
+  // Post processing of description.
+  _postProcess(desc) {
+    const keys = Object.keys(CONFIG.DND5E.abilities).map(k => k.toUpperCase());
+    const abis = this.actor.system.abilities;
+    const prof = this.actor.system.attributes.prof;
+    for (const key of keys) desc = desc.replaceAll(`[${key} ATK]`, (abis[key.toLowerCase()].mod + prof).signedString());
+    for (const key of keys) desc = desc.replaceAll(`[${key} SAVE]`, (abis[key.toLowerCase()].dc));
+
+    // Replace damage rolls.
+    let matches = [...(desc.matchAll(/\[([a-zA-Z]{3}) ([0-9]+[dD][0-9]+)\]/g) ?? [])];
+    for (const [str, abilityKeyUpperCase, diceRoll] of matches) {
+      const key = abilityKeyUpperCase.toLowerCase();
+      if (!(key in abis)) continue;
+      const mod = abis[key].mod;
+      desc = desc.replaceAll(`[${abilityKeyUpperCase} ${diceRoll}]`, `${diceRoll.toLowerCase()} ${mod >= 0 ? "+" : "-"} ${mod}`);
+    }
+
+    // Replace generic rolls in brackets.
+    matches = [...(desc.matchAll(/\[([0-9]+[dD][0-9]+)\]/g) ?? [])];
+    for (const [str, roll] of matches) desc = desc.replaceAll(`[${roll}]`, `${roll.toLowerCase()}`);
+
+    // Fix italics.
+    matches = true;
+    while (matches) {
+      matches = desc.match(/\_(.*?)\_/);
+      if (matches) desc = desc.replace(`_${matches[1]}_`, `<em>${matches[1]}</em>`);
+    }
+
+    return desc;
   }
 
   getRecharge(name) {
